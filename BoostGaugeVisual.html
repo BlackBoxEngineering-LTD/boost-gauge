@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Boost Gauge Simulator</title>
+    <style>
+        body { background: #000; color: #fff; font-family: Arial; text-align: center; }
+        canvas { border: 1px solid #333; margin: 20px; }
+        .controls { margin: 20px; }
+        button { padding: 10px 20px; margin: 5px; background: #333; color: #fff; border: none; cursor: pointer; }
+        button:hover { background: #555; }
+        .info { margin: 10px; font-size: 18px; }
+    </style>
+</head>
+<body>
+    <h1>Boost Gauge Simulator</h1>
+    <canvas id="gauge" width="240" height="240"></canvas>
+    <div class="info">
+        <div>PSI: <span id="psi">0.0</span></div>
+        <div>BAR: <span id="bar">0.00</span></div>
+        <div>Status: <span id="status">BOOST</span></div>
+    </div>
+    <div class="controls">
+        <button onclick="toggleSim()">Start/Stop</button>
+        <button onclick="resetSim()">Reset</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gauge');
+        const ctx = canvas.getContext('2d');
+        
+        const CX = 120, CY = 120;
+        const R_OUT = 104, ARC_THICK = 14;
+        const R_NEEDLE = 90, R_LABEL = 78;
+        const DEG_TO_RAD = Math.PI / 180;
+        
+        let simTime = 0;
+        let running = false;
+        let animId;
+        
+        function pointOnCircle(deg, r) {
+            const rad = deg * DEG_TO_RAD;
+            return {
+                x: CX + Math.cos(rad) * r,
+                y: CY - Math.sin(rad) * r
+            };
+        }
+        
+        function psiToAngle(psi) {
+            if (psi <= 0) {
+                const frac = (psi + 15) / 15;
+                return 270 + frac * -90;
+            } else {
+                const frac = psi / 16;  // Scale to 16 PSI max
+                return 180 + frac * -180;
+            }
+        }
+        
+        function drawArc(startDeg, endDeg, isBoost) {
+            const dir = endDeg >= startDeg ? 1 : -1;
+            const count = Math.abs(endDeg - startDeg);
+            
+            for (let i = 0; i <= count; i++) {
+                const a = startDeg + dir * i;
+                const frac = i / count;
+                const intensity = 50 + frac * 205;
+                
+                ctx.strokeStyle = isBoost ? `rgb(${intensity},0,0)` : `rgb(0,0,${intensity})`;
+                ctx.lineWidth = 2;
+                
+                const outer = pointOnCircle(a, R_OUT);
+                const inner = pointOnCircle(a, R_OUT - ARC_THICK);
+                
+                ctx.beginPath();
+                ctx.moveTo(outer.x, outer.y);
+                ctx.lineTo(inner.x, inner.y);
+                ctx.stroke();
+            }
+        }
+        
+        function drawGauge(psi) {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, 240, 240);
+            
+            // Arcs
+            drawArc(180, 270, false); // vacuum (blue)
+            drawArc(180, 0, true);    // boost (red)
+            
+            // Labels
+            ctx.fillStyle = '#fff';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            
+            const labels = [
+                {txt: '-15', val: -15}, {txt: '-10', val: -10}, {txt: '-5', val: -5},
+                {txt: '0', val: 0}, {txt: '+5', val: 5}, {txt: '+10', val: 10}, {txt: '+15', val: 15}, {txt: '+16', val: 16}
+            ];
+            
+            labels.forEach(L => {
+                const a = psiToAngle(L.val);
+                const pos = pointOnCircle(a, R_LABEL);
+                ctx.fillText(L.txt, pos.x, pos.y + 5);
+            });
+            
+            // Ticks
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            for (let p = -15; p <= 16; p++) {
+                const a = psiToAngle(p);
+                const outer = pointOnCircle(a, p % 5 === 0 ? R_OUT + 2 : R_OUT);
+                const inner = pointOnCircle(a, R_OUT - ARC_THICK - (p % 5 === 0 ? 6 : 3));
+                
+                ctx.beginPath();
+                ctx.moveTo(outer.x, outer.y);
+                ctx.lineTo(inner.x, inner.y);
+                ctx.stroke();
+            }
+            
+            // Needle
+            const angle = psiToAngle(psi);
+            const needleEnd = pointOnCircle(angle, R_NEEDLE);
+            
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(CX, CY);
+            ctx.lineTo(needleEnd.x, needleEnd.y);
+            ctx.stroke();
+            
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(CX, CY, 4, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Info display
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            if (psi >= 15.5) {
+                ctx.fillStyle = '#ff0000';
+                ctx.fillText('MAX BOOST', 165, 150);  // Move left 15px
+                ctx.fillStyle = '#fff';
+            } else {
+                ctx.fillText(psi < 0 ? 'VACUUM' : 'BOOST', 180, 150);
+            }
+            
+            // Left-aligned PSI/BAR
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(`PSI ${psi.toFixed(1)}`, 150, 176);  // Left aligned under VACUUM
+            ctx.fillText(`BAR ${(psi/14.5038).toFixed(2)}`, 150, 198);
+            
+            // Debug info above center
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`V:1.65 SIM`, CX, CY - 30);
+        }
+        
+        function animate() {
+            if (!running) return;
+            
+            simTime += 0.02;
+            const psi = 16 * Math.sin(simTime);  // Now sweeps to +16 PSI
+            const bar = psi / 14.5038;
+            
+            drawGauge(psi);
+            
+            document.getElementById('psi').textContent = psi.toFixed(1);
+            document.getElementById('bar').textContent = bar.toFixed(2);
+            document.getElementById('status').textContent = psi < 0 ? 'VACUUM' : 'BOOST';
+            
+            animId = requestAnimationFrame(animate);
+        }
+        
+        function toggleSim() {
+            running = !running;
+            if (running) {
+                animate();
+            } else {
+                cancelAnimationFrame(animId);
+            }
+        }
+        
+        function resetSim() {
+            simTime = 0;
+            drawGauge(0);
+            document.getElementById('psi').textContent = '0.0';
+            document.getElementById('bar').textContent = '0.00';
+            document.getElementById('status').textContent = 'BOOST';
+        }
+        
+        // Initial draw
+        drawGauge(0);
+    </script>
+</body>
+</html>
