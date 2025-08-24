@@ -1,6 +1,7 @@
 # ESP32 Compact Digital Gauge System
 
-Compact digital gauges for automotive applications - replacing bulky 3" deep analog gauges with thin ESP32-powered displays.
+Compact digital gauges for automotive applications.
+Replacing bulky 3" deep analog gauges with thin ESP32-powered displays.
 
 ## The Problem
 Traditional car gauges are:
@@ -70,12 +71,11 @@ const int SENSOR_PIN = 4;  // Analog input for pressure sensor
 - **Auto-zero**: Automatically calibrates sensor offset at startup
 - **Scale adjustment**: Modify `CAL_SCALE` if readings are incorrect
 - **Simulation**: Set `SIMULATE = true` for testing without sensor
-- **Demo mode**: Shows MAX BOOST alert during test sweep
 
 ## Files
 
-- `BoostGauge.ino` - **Arduino IDE compatible** ESP32 firmware (recommended for Arduino IDE users)
-- `BoostGauge.cpp` - **Clean C++ version** of ESP32 firmware (no comments, same functionality)
+- `BoostGauge.ino` - **Arduino IDE compatible** ESP32 firmware
+- `BoostGauge.cpp` - **Clean C++ version** of ESP32 firmware
 - `BoostGaugeSimulator.cpp` - Console test simulator
 - `BoostGaugeVisual.html` - Visual web simulator
 
@@ -92,14 +92,14 @@ const int SENSOR_PIN = 4;  // Analog input for pressure sensor
 ## Usage
 
 1. Connect pressure sensor to ECU manifold
-2. Power ESP32 and wait for auto-zero
+2. Power ESP32 and wait for auto-zero*
 3. Gauge displays real-time boost/vacuum
 4. Values shown in both PSI and BAR
 5. **Mount multiple gauges** easily in dashboard
 
 ## Display Layout
 
-- **Semicircular gauge** with colored gradient arcs
+- **Semicircular gauge** with coloured gradient arcs
 - **Needle pointer** indicating current pressure
 - **Digital readout** showing PSI, BAR, and VACUUM/BOOST status
 - **Safety alert** - "MAX BOOST" in red at dangerous levels
